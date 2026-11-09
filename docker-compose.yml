@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_DB: deals_bigdata
+      POSTGRES_HOST_AUTH_METHOD: trust
+      N_PRICES: ${N_PRICES:-300000}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U demo -d deals_bigdata"]
+      interval: 2s
+      timeout: 3s
+      retries: 90
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sh:/docker-entrypoint-initdb.d/10-source.sh:ro
+      - ./sql/source:/source:ro
+    networks: [warehouse]
+  pipeline:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: demo
+      PGDATABASE: deals_bigdata
+      PGCONNECT_TIMEOUT: "10"
+      START_DATE: ${START_DATE:-2023-01-01}
+      END_DATE: ${END_DATE:-2027-04-01}
+      AS_OF: ${AS_OF:-2026-10-26}
+    networks: [warehouse]
+volumes:
+  postgres_data:
+networks:
+  warehouse:
+    internal: true
